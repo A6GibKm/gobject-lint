@@ -55,6 +55,8 @@ pub struct FunctionDefItem {
     pub body_location: Option<SourceLocation>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub doc: Option<FunctionDoc>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub macro_modifiers: Vec<String>,
 }
 
 impl FunctionDefItem {

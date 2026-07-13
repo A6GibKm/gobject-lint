@@ -524,24 +524,30 @@ impl Parser {
     fn parse_function_definition_node(&self, node: Node, source: &[u8]) -> Option<TopLevelItem> {
         let (name, is_static, is_inline) = self.extract_function_from_definition(node, source)?;
 
-        let parameters = if let Some(declarator) = node.child_by_field_name("declarator") {
-            let mut params = Vec::new();
-            let mut cursor = declarator.walk();
-            if let Some(child) = declarator
-                .children_by_field_name("parameters", &mut cursor)
-                .next()
-            {
-                params = self.extract_parameters(child, source);
-            }
-            if params.is_empty()
-                && let Some(params_node) = self.find_node_by_kind(declarator, "parameter_list")
-            {
-                params = self.extract_parameters(params_node, source);
-            }
-            params
-        } else {
-            Vec::new()
-        };
+        let (parameters, macro_modifiers) =
+            if let Some(declarator) = node.child_by_field_name("declarator") {
+                let mut params = Vec::new();
+                let mut modifiers = Vec::new();
+                let mut cursor = declarator.walk();
+
+                for child in declarator.children(&mut cursor) {
+                    if child.kind() == "parameter_list" && params.is_empty() {
+                        params = self.extract_parameters(child, source);
+                    } else if child.kind() == "macro_modifier"
+                        && let Ok(text) = std::str::from_utf8(&source[child.byte_range()])
+                    {
+                        modifiers.push(text.trim().to_owned());
+                    }
+                }
+                if params.is_empty()
+                    && let Some(params_node) = self.find_node_by_kind(declarator, "parameter_list")
+                {
+                    params = self.extract_parameters(params_node, source);
+                }
+                (params, modifiers)
+            } else {
+                (Vec::new(), Vec::new())
+            };
 
         let body = node.child_by_field_name("body");
         let body_statements = body
@@ -561,6 +567,7 @@ impl Parser {
             location: self.node_location(node),
             body_location,
             doc: FunctionDoc::from_node_for(node, source, name),
+            macro_modifiers,
         }))
     }
 

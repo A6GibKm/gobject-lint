@@ -1,4 +1,5 @@
 sources = [
+  'basic.c',
   'basic.h',
 ]
 
